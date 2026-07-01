@@ -1,0 +1,38 @@
+
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>Ekstrak NIK Nama Tanggal Lahir</title>
+<style>body{font-family:Arial;margin:20px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:6px}</style>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+</head><body>
+<h2>Ekstrak NIK, Nama & Tanggal Lahir</h2>
+<input type="file" id="f">
+<button onclick="exp()">Download XLSX</button>
+<p>Upload TXT/XLSX. Untuk TXT gunakan pola DPT KPU.</p>
+<table id="t"><thead><tr><th>NIK</th><th>Nama</th><th>Tgl Lahir</th></tr></thead><tbody></tbody></table>
+<script>
+let rows=[];
+document.getElementById('f').onchange=e=>{
+ const file=e.target.files[0];
+ const r=new FileReader();
+ if(file.name.toLowerCase().endsWith('.txt')){
+  r.onload=()=>{
+    rows=[];
+    const re=/\b(\d{16})\s+(.+?)\s+\S+\s+(\d{2}[|\/]\d{2}[|\/]\d{4})/g;
+    let m; while((m=re.exec(r.result))){rows.push([m[1],m[2].trim(),m[3].replace(/\|/g,'-')]);}
+    draw();
+  }; r.readAsText(file);
+ } else {
+  r.onload=()=>{
+   const wb=XLSX.read(r.result,{type:'array'});
+   const ws=wb.Sheets[wb.SheetNames[0]];
+   const data=XLSX.utils.sheet_to_json(ws,{header:1});
+   const h=data[0].map(x=>String(x).toLowerCase());
+   const ni=h.findIndex(x=>x.includes('nik')),na=h.findIndex(x=>x.includes('nama')),tg=h.findIndex(x=>x.includes('tgl')||x.includes('lahir'));
+   rows=data.slice(1).map(r=>[r[ni],r[na],r[tg]]).filter(r=>r[0]);
+   draw();
+  }; r.readAsArrayBuffer(file);
+ }
+}
+function draw(){const b=document.querySelector('#t tbody');b.innerHTML='';rows.forEach(r=>{b.innerHTML+=`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`})}
+function exp(){const wb=XLSX.utils.book_new();const ws=XLSX.utils.aoa_to_sheet([['NIK','Nama','Tanggal Lahir'],...rows]);XLSX.utils.book_append_sheet(wb,ws,'Data');XLSX.writeFile(wb,'Hasil.xlsx')}
+</script></body></html>
