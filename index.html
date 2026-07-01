@@ -62,6 +62,18 @@
         input[type="file"] {
             display: none;
         }
+        .input-filename {
+            padding: 11px 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 15px;
+            width: 250px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        .input-filename:focus {
+            border-color: var(--primary);
+        }
         .btn {
             background-color: var(--primary);
             color: white;
@@ -73,7 +85,6 @@
             cursor: pointer;
             transition: background-color 0.3s;
             display: inline-block;
-            margin-top: 10px;
         }
         .btn:hover {
             background-color: var(--primary-hover);
@@ -87,6 +98,14 @@
         }
         .btn-success:hover {
             background-color: #059669;
+        }
+        .download-group {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
         }
         #status {
             margin: 15px 0;
@@ -120,8 +139,12 @@
         }
         .actions {
             text-align: center;
-            margin-top: 20px;
+            margin-top: 25px;
             display: none;
+            background-color: #F9FAFB;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
         }
         .badge {
             background-color: #DBEAFE;
@@ -169,8 +192,13 @@
     </div>
 
     <div class="actions" id="actionArea">
-        <p style="color: #059669; font-weight: 600; margin-bottom: 15px;" id="resultCount"></p>
-        <button id="downloadBtn" class="btn btn-success">⬇️ Download Hasil Gabungan (XLSX)</button>
+        <h3 style="color: #059669; margin: 0 0 10px 0;" id="resultCount"></h3>
+        <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 15px;">Silakan beri nama file sebelum didownload:</p>
+        
+        <div class="download-group">
+            <input type="text" id="customFileName" class="input-filename" placeholder="Contoh: TPS 01 Desa Sukajaya">
+            <button id="downloadBtn" class="btn btn-success">⬇️ Download Excel</button>
+        </div>
     </div>
 </div>
 
@@ -184,6 +212,7 @@
     const actionArea = document.getElementById('actionArea');
     const downloadBtn = document.getElementById('downloadBtn');
     const resultCountText = document.getElementById('resultCount');
+    const customFileNameInput = document.getElementById('customFileName');
 
     let extractedDataGlobal = [];
 
@@ -232,12 +261,10 @@
                 reader.onload = (e) => {
                     try {
                         const data = new Uint8Array(e.target.result);
-                        // WAJIB: cellDates=true untuk membaca kalender Excel dgn benar
                         const workbook = XLSX.read(data, { type: 'array', cellDates: true });
                         let allSheetData = [];
                         workbook.SheetNames.forEach(sheetName => {
                             const sheet = workbook.Sheets[sheetName];
-                            // WAJIB: raw=true agar objek Date tidak diubah jadi teks ngawur oleh library
                             const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true });
                             allSheetData = allSheetData.concat(processSheetRows(rows));
                         });
@@ -252,7 +279,7 @@
         });
     }
 
-    // LOGIKA TANGGAL & NAMA DIPERBARUI
+    // LOGIKA TANGGAL & NAMA
     function processSheetRows(rows) {
         let data = [];
         const excludeWords = ['LAKI-LAKI', 'PEREMPUAN', 'KAWIN', 'BELUM KAWIN', 'CERAI HIDUP', 'CERAI MATI', 'SUDAH KAWIN', 'KABUPATEN', 'PROVINSI', 'KECAMATAN', 'DESA', 'KELURAHAN', 'PEMILIH', 'TETAP', 'PERBAIKAN', 'TPS', 'ALAMAT', 'NAMA', 'NO', 'KK', 'NIK'];
@@ -267,7 +294,7 @@
             let nikColIndex = -1;
             let tglColIndex = -1;
             
-            // 1. CARI NIK
+            // CARI NIK
             let sixteenDigitCols = [];
             for (let c = 0; c < row.length; c++) {
                 let cellStr = String(row[c] || '').trim();
@@ -283,12 +310,11 @@
                 nikColIndex = nikObj.index;
             }
 
-            // 2. CARI TANGGAL LAHIR (Logic Baru untuk Excel Format)
+            // CARI TANGGAL LAHIR
             for (let c = 0; c < row.length; c++) {
                 let cellVal = row[c];
                 if (!cellVal) continue;
                 
-                // Jika itu format Objek Date bawaan Excel
                 if (cellVal instanceof Date) {
                     let d = cellVal;
                     tgl = ("0" + d.getDate()).slice(-2) + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + d.getFullYear();
@@ -296,7 +322,6 @@
                     break;
                 }
                 
-                // Jika itu format teks (misal 1985-05-17 atau 17/05/1985)
                 if (typeof cellVal === 'string' || typeof cellVal === 'number') {
                     let dateStr = String(cellVal).trim();
                     let dateMatch = dateStr.match(/\b(\d{2,4})[-/|](\d{1,2})[-/|](\d{2,4})\b/);
@@ -305,11 +330,11 @@
                         let p2 = ("0" + dateMatch[2]).slice(-2); 
                         let p3 = dateMatch[3]; 
                         
-                        if (p1.length === 4) { // Format yyyy-mm-dd
+                        if (p1.length === 4) { 
                             tgl = `${("0"+p3).slice(-2)}-${p2}-${p1}`; 
-                        } else if (p3.length === 4) { // Format dd-mm-yyyy
+                        } else if (p3.length === 4) { 
                             tgl = `${("0"+p1).slice(-2)}-${p2}-${p3}`;
-                        } else if (p3.length === 2 && p1.length === 2) { // Format dd-mm-yy
+                        } else if (p3.length === 2 && p1.length === 2) { 
                             let year = parseInt(p3) > 50 ? "19" + p3 : "20" + p3;
                             tgl = `${("0"+p1).slice(-2)}-${p2}-${year}`;
                         }
@@ -319,7 +344,7 @@
                 }
             }
 
-            // 3. CARI NAMA (Huruf pertama yg bukan NIK & Tgl Lahir)
+            // CARI NAMA
             for (let c = 0; c < row.length; c++) {
                 if (c === nikColIndex || c === tglColIndex) continue;
                 let cellStr = String(row[c] || '').trim();
@@ -342,7 +367,6 @@
                 }
             }
             
-            // Masukkan data jika NIK dan NAMA ketemu (Tgl kosong jadi '-' jika gagal)
             if (niko && nama) {
                 data.push({ NIK: niko, NAMA: nama, 'TANGGAL LAHIR': tgl || '-' });
             }
@@ -350,7 +374,7 @@
         return data;
     }
 
-    // LOGIKA TXT (Tetap Sama)
+    // LOGIKA TXT
     function processTXT(text) {
         let data = [];
         let lines = text.split(/\r?\n/);
@@ -435,6 +459,9 @@
             
             resultCountText.innerText = `✅ Berhasil mengekstrak ${extractedDataGlobal.length} baris pemilih!`;
             
+            // Kosongkan inputan nama file dari eksekusi sebelumnya
+            customFileNameInput.value = "";
+            
             previewTableBody.innerHTML = '';
             const previewLimit = Math.min(extractedDataGlobal.length, 100);
             for(let i=0; i < previewLimit; i++){
@@ -466,8 +493,23 @@
         processBtn.innerText = "Mulai Ekstraksi Lagi";
     });
 
+    // Event Trigger Download
     downloadBtn.addEventListener('click', () => {
         if(extractedDataGlobal.length === 0) return;
+        
+        // Ambil nama file dari input
+        let finalFileName = customFileNameInput.value.trim();
+        
+        // Jika kolom kosong, berikan nama default
+        if (finalFileName === "") {
+            finalFileName = "Data_Hasil_Ekstraksi";
+        }
+        
+        // Pastikan ujung file-nya selalu format .xlsx
+        if (!finalFileName.toLowerCase().endsWith('.xlsx')) {
+            finalFileName += ".xlsx";
+        }
+
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.json_to_sheet(extractedDataGlobal);
         
@@ -475,7 +517,7 @@
         ws['!cols'] = wscols;
         
         XLSX.utils.book_append_sheet(wb, ws, "Daftar Pemilih");
-        XLSX.writeFile(wb, "Data_Hasil_Ekstraksi.xlsx");
+        XLSX.writeFile(wb, finalFileName);
     });
 </script>
 
