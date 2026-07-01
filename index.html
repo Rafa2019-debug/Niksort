@@ -1,38 +1,483 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Ekstraksi NIK, Nama & Tgl Lahir</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary: #4F46E5;
+            --primary-hover: #4338CA;
+            --bg-color: #F3F4F6;
+            --box-bg: #FFFFFF;
+            --text-main: #1F2937;
+            --text-muted: #6B7280;
+            --border-color: #E5E7EB;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            background-color: var(--box-bg);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            max-width: 900px;
+        }
+        h1 {
+            margin-top: 0;
+            font-size: 24px;
+            color: var(--primary);
+            text-align: center;
+        }
+        p.subtitle {
+            text-align: center;
+            color: var(--text-muted);
+            margin-bottom: 25px;
+            font-size: 15px;
+        }
+        .upload-area {
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            background-color: #F9FAFB;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
+        }
+        .upload-area:hover {
+            border-color: var(--primary);
+            background-color: #EEF2FF;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            display: inline-block;
+            margin-top: 10px;
+        }
+        .btn:hover {
+            background-color: var(--primary-hover);
+        }
+        .btn:disabled {
+            background-color: #9CA3AF;
+            cursor: not-allowed;
+        }
+        .btn-success {
+            background-color: #10B981;
+        }
+        .btn-success:hover {
+            background-color: #059669;
+        }
+        #status {
+            margin: 15px 0;
+            font-weight: bold;
+            text-align: center;
+        }
+        .table-container {
+            overflow-x: auto;
+            margin-top: 20px;
+            max-height: 400px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            display: none;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 14px;
+            white-space: nowrap;
+        }
+        th {
+            background-color: #F9FAFB;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .actions {
+            text-align: center;
+            margin-top: 20px;
+            display: none;
+        }
+        .badge {
+            background-color: #DBEAFE;
+            color: #1E40AF;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin: 0 2px;
+        }
+    </style>
+</head>
+<body>
 
-<!DOCTYPE html><html><head><meta charset="utf-8">
-<title>Ekstrak NIK Nama Tanggal Lahir</title>
-<style>body{font-family:Arial;margin:20px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:6px}</style>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
-</head><body>
-<h2>Ekstrak NIK, Nama & Tanggal Lahir</h2>
-<input type="file" id="f">
-<button onclick="exp()">Download XLSX</button>
-<p>Upload TXT/XLSX. Untuk TXT gunakan pola DPT KPU.</p>
-<table id="t"><thead><tr><th>NIK</th><th>Nama</th><th>Tgl Lahir</th></tr></thead><tbody></tbody></table>
+<div class="container">
+    <h1>🚀 Web Ekstraksi NIK, Nama & Tgl Lahir</h1>
+    <p class="subtitle">Sistem Pintar: <b>Membaca File Lintas Format</b><br>Mendukung format: <span class="badge">.XLSX</span> <span class="badge">.XLS</span> <span class="badge">.CSV</span> <span class="badge">.TXT</span></p>
+
+    <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <p style="font-size: 40px; margin: 0;">📥</p>
+        <p style="margin: 15px 0 5px; font-weight: 600;">Klik atau Drop File Excel/CSV/TXT Anda Di Sini</p>
+        <p style="font-size: 13px; color: var(--text-muted);">Mendukung semua format model A-KWK / DPTHP</p>
+    </div>
+    <input type="file" id="fileInput" multiple accept=".csv, .txt, .xlsx, .xls">
+    
+    <div style="text-align: center;">
+        <button id="processBtn" class="btn" disabled>Mulai Ekstraksi</button>
+    </div>
+
+    <div id="status"></div>
+
+    <div class="table-container" id="tableContainer">
+        <table id="previewTable">
+            <thead>
+                <tr>
+                    <th>NO</th>
+                    <th>NIK</th>
+                    <th>NAMA</th>
+                    <th>TANGGAL LAHIR</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="actions" id="actionArea">
+        <p style="color: #059669; font-weight: 600; margin-bottom: 15px;" id="resultCount"></p>
+        <button id="downloadBtn" class="btn btn-success">⬇️ Download Hasil Gabungan (XLSX)</button>
+    </div>
+</div>
+
 <script>
-let rows=[];
-document.getElementById('f').onchange=e=>{
- const file=e.target.files[0];
- const r=new FileReader();
- if(file.name.toLowerCase().endsWith('.txt')){
-  r.onload=()=>{
-    rows=[];
-    const re=/\b(\d{16})\s+(.+?)\s+\S+\s+(\d{2}[|\/]\d{2}[|\/]\d{4})/g;
-    let m; while((m=re.exec(r.result))){rows.push([m[1],m[2].trim(),m[3].replace(/\|/g,'-')]);}
-    draw();
-  }; r.readAsText(file);
- } else {
-  r.onload=()=>{
-   const wb=XLSX.read(r.result,{type:'array'});
-   const ws=wb.Sheets[wb.SheetNames[0]];
-   const data=XLSX.utils.sheet_to_json(ws,{header:1});
-   const h=data[0].map(x=>String(x).toLowerCase());
-   const ni=h.findIndex(x=>x.includes('nik')),na=h.findIndex(x=>x.includes('nama')),tg=h.findIndex(x=>x.includes('tgl')||x.includes('lahir'));
-   rows=data.slice(1).map(r=>[r[ni],r[na],r[tg]]).filter(r=>r[0]);
-   draw();
-  }; r.readAsArrayBuffer(file);
- }
-}
-function draw(){const b=document.querySelector('#t tbody');b.innerHTML='';rows.forEach(r=>{b.innerHTML+=`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`})}
-function exp(){const wb=XLSX.utils.book_new();const ws=XLSX.utils.aoa_to_sheet([['NIK','Nama','Tanggal Lahir'],...rows]);XLSX.utils.book_append_sheet(wb,ws,'Data');XLSX.writeFile(wb,'Hasil.xlsx')}
-</script></body></html>
+    const fileInput = document.getElementById('fileInput');
+    const processBtn = document.getElementById('processBtn');
+    const statusDiv = document.getElementById('status');
+    const dropZone = document.getElementById('dropZone');
+    const tableContainer = document.getElementById('tableContainer');
+    const previewTableBody = document.querySelector('#previewTable tbody');
+    const actionArea = document.getElementById('actionArea');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const resultCountText = document.getElementById('resultCount');
+
+    let extractedDataGlobal = [];
+
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = 'var(--primary)';
+        dropZone.style.backgroundColor = '#EEF2FF';
+    });
+    dropZone.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = 'var(--border-color)';
+        dropZone.style.backgroundColor = '#F9FAFB';
+    });
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = 'var(--border-color)';
+        dropZone.style.backgroundColor = '#F9FAFB';
+        if (e.dataTransfer.files.length > 0) {
+            fileInput.files = e.dataTransfer.files;
+            updateFileStatus();
+        }
+    });
+
+    fileInput.addEventListener('change', updateFileStatus);
+
+    function updateFileStatus() {
+        if (fileInput.files.length > 0) {
+            processBtn.disabled = false;
+            statusDiv.innerHTML = `<span style="color:var(--primary)">${fileInput.files.length} file siap diproses.</span>`;
+        } else {
+            processBtn.disabled = true;
+            statusDiv.innerText = '';
+        }
+    }
+
+    function processFileAsync(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            const fileName = file.name.toLowerCase();
+
+            if (fileName.endsWith('.txt')) {
+                reader.onload = (e) => resolve(processTXT(e.target.result));
+                reader.onerror = reject;
+                reader.readAsText(file, "UTF-8");
+            } else {
+                reader.onload = (e) => {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        // WAJIB: cellDates=true untuk membaca kalender Excel dgn benar
+                        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                        let allSheetData = [];
+                        workbook.SheetNames.forEach(sheetName => {
+                            const sheet = workbook.Sheets[sheetName];
+                            // WAJIB: raw=true agar objek Date tidak diubah jadi teks ngawur oleh library
+                            const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true });
+                            allSheetData = allSheetData.concat(processSheetRows(rows));
+                        });
+                        resolve(allSheetData);
+                    } catch (err) {
+                        reject(err);
+                    }
+                };
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            }
+        });
+    }
+
+    // LOGIKA TANGGAL & NAMA DIPERBARUI
+    function processSheetRows(rows) {
+        let data = [];
+        const excludeWords = ['LAKI-LAKI', 'PEREMPUAN', 'KAWIN', 'BELUM KAWIN', 'CERAI HIDUP', 'CERAI MATI', 'SUDAH KAWIN', 'KABUPATEN', 'PROVINSI', 'KECAMATAN', 'DESA', 'KELURAHAN', 'PEMILIH', 'TETAP', 'PERBAIKAN', 'TPS', 'ALAMAT', 'NAMA', 'NO', 'KK', 'NIK'];
+
+        for (let i = 0; i < rows.length; i++) {
+            let row = rows[i];
+            if (!row || row.length === 0) continue;
+
+            let niko = null;
+            let nama = null;
+            let tgl = null;
+            let nikColIndex = -1;
+            let tglColIndex = -1;
+            
+            // 1. CARI NIK
+            let sixteenDigitCols = [];
+            for (let c = 0; c < row.length; c++) {
+                let cellStr = String(row[c] || '').trim();
+                let digits = cellStr.replace(/[^0-9]/g, '');
+                if (digits.length === 16 || digits.length === 15) {
+                    sixteenDigitCols.push({index: c, val: digits});
+                }
+            }
+            
+            if (sixteenDigitCols.length > 0) {
+                let nikObj = sixteenDigitCols.length >= 2 ? sixteenDigitCols[1] : sixteenDigitCols[0];
+                niko = nikObj.val;
+                nikColIndex = nikObj.index;
+            }
+
+            // 2. CARI TANGGAL LAHIR (Logic Baru untuk Excel Format)
+            for (let c = 0; c < row.length; c++) {
+                let cellVal = row[c];
+                if (!cellVal) continue;
+                
+                // Jika itu format Objek Date bawaan Excel
+                if (cellVal instanceof Date) {
+                    let d = cellVal;
+                    tgl = ("0" + d.getDate()).slice(-2) + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + d.getFullYear();
+                    tglColIndex = c;
+                    break;
+                }
+                
+                // Jika itu format teks (misal 1985-05-17 atau 17/05/1985)
+                if (typeof cellVal === 'string' || typeof cellVal === 'number') {
+                    let dateStr = String(cellVal).trim();
+                    let dateMatch = dateStr.match(/\b(\d{2,4})[-/|](\d{1,2})[-/|](\d{2,4})\b/);
+                    if (dateMatch) {
+                        let p1 = dateMatch[1]; 
+                        let p2 = ("0" + dateMatch[2]).slice(-2); 
+                        let p3 = dateMatch[3]; 
+                        
+                        if (p1.length === 4) { // Format yyyy-mm-dd
+                            tgl = `${("0"+p3).slice(-2)}-${p2}-${p1}`; 
+                        } else if (p3.length === 4) { // Format dd-mm-yyyy
+                            tgl = `${("0"+p1).slice(-2)}-${p2}-${p3}`;
+                        } else if (p3.length === 2 && p1.length === 2) { // Format dd-mm-yy
+                            let year = parseInt(p3) > 50 ? "19" + p3 : "20" + p3;
+                            tgl = `${("0"+p1).slice(-2)}-${p2}-${year}`;
+                        }
+                        tglColIndex = c;
+                        break;
+                    }
+                }
+            }
+
+            // 3. CARI NAMA (Huruf pertama yg bukan NIK & Tgl Lahir)
+            for (let c = 0; c < row.length; c++) {
+                if (c === nikColIndex || c === tglColIndex) continue;
+                let cellStr = String(row[c] || '').trim();
+                
+                if (cellStr.length >= 2 && /[a-zA-Z]{2,}/.test(cellStr)) {
+                    let upperStr = cellStr.toUpperCase();
+                    if (['L', 'P', 'B', 'S'].includes(upperStr)) continue;
+                    
+                    let isExcluded = false;
+                    for (let word of excludeWords) {
+                        if (upperStr.includes(word)) {
+                            isExcluded = true;
+                            break;
+                        }
+                    }
+                    if (isExcluded) continue;
+
+                    nama = cellStr;
+                    break;
+                }
+            }
+            
+            // Masukkan data jika NIK dan NAMA ketemu (Tgl kosong jadi '-' jika gagal)
+            if (niko && nama) {
+                data.push({ NIK: niko, NAMA: nama, 'TANGGAL LAHIR': tgl || '-' });
+            }
+        }
+        return data;
+    }
+
+    // LOGIKA TXT (Tetap Sama)
+    function processTXT(text) {
+        let data = [];
+        let lines = text.split(/\r?\n/);
+        for (let i = 0; i < lines.length; i++) {
+            let line = lines[i];
+            let sixteenDigits = line.match(/\b\d{15,16}\b/g) || [];
+            let dates = line.match(/\b(\d{2,4})[-/|]\d{1,2}[-/|](\d{2,4})\b/g) || [];
+
+            if (sixteenDigits.length >= 1) {
+                let nik = sixteenDigits.length >= 2 ? sixteenDigits[1] : sixteenDigits[0];
+                let tgl = '-';
+                if(dates.length > 0) {
+                    let rawTgl = dates[0].replace(/[\/|]/g, '-');
+                    let p = rawTgl.split('-');
+                    if (p[0].length === 4) { tgl = `${("0"+p[2]).slice(-2)}-${("0"+p[1]).slice(-2)}-${p[0]}`; }
+                    else { tgl = `${("0"+p[0]).slice(-2)}-${("0"+p[1]).slice(-2)}-${p[2]}`; }
+                }
+
+                let nama = "TIDAK DIKETAHUI";
+                let splitParts = line.split(nik);
+                let leftSide = splitParts[0].trim();
+                let leftTextMatches = leftSide.match(/[a-zA-Z]{3,}/g);
+                
+                if (leftTextMatches) {
+                    nama = leftSide.replace(/[^a-zA-Z\s.,']/g, '').trim();
+                } else if (splitParts.length > 1) {
+                    let rightSide = splitParts[1];
+                    let textBeforeDate = dates.length > 0 ? rightSide.split(dates[0])[0].trim() : rightSide;
+                    let words = textBeforeDate.split(/\s+/);
+                    words = words.filter(w => !['L','P','S','B','l','p','s','b'].includes(w) && !/\d/.test(w));
+                    
+                    if (words.length > 1) {
+                        words.pop(); 
+                        nama = words.join(" ");
+                    } else if (words.length === 1) {
+                        nama = words[0];
+                    }
+                }
+
+                if (nama !== "TIDAK DIKETAHUI" && nama !== "") {
+                    data.push({ NIK: nik, NAMA: nama, 'TANGGAL LAHIR': tgl });
+                }
+            }
+        }
+        return data;
+    }
+
+    processBtn.addEventListener('click', async () => {
+        if (fileInput.files.length === 0) return;
+        
+        processBtn.disabled = true;
+        processBtn.innerText = "Sistem Sedang Mengekstrak...";
+        statusDiv.innerHTML = "Sedang membaca pola penanggalan, mohon tunggu...";
+        
+        extractedDataGlobal = [];
+        let errorCount = 0;
+        
+        for (let i = 0; i < fileInput.files.length; i++) {
+            let file = fileInput.files[i];
+            try {
+                let parsedData = await processFileAsync(file);
+                extractedDataGlobal = extractedDataGlobal.concat(parsedData);
+            } catch (error) {
+                console.error(`Gagal diproses file ${file.name}:`, error);
+                errorCount++;
+            }
+        }
+
+        extractedDataGlobal = extractedDataGlobal.map((item, index) => {
+            return {
+                "NO": index + 1,
+                "NIK": item.NIK, 
+                "NAMA": item.NAMA.toUpperCase(),
+                "TANGGAL LAHIR": item['TANGGAL LAHIR']
+            };
+        });
+
+        if (extractedDataGlobal.length > 0) {
+            let msg = `<span style="color:#10B981">Ekstraksi berhasil diselesaikan!</span>`;
+            if(errorCount > 0) msg += ` <span style="color:red">(${errorCount} file gagal diproses)</span>`;
+            statusDiv.innerHTML = msg;
+            
+            resultCountText.innerText = `✅ Berhasil mengekstrak ${extractedDataGlobal.length} baris pemilih!`;
+            
+            previewTableBody.innerHTML = '';
+            const previewLimit = Math.min(extractedDataGlobal.length, 100);
+            for(let i=0; i < previewLimit; i++){
+                let row = document.createElement('tr');
+                let data = extractedDataGlobal[i];
+                row.innerHTML = `
+                    <td>${data.NO}</td>
+                    <td>${data.NIK}</td>
+                    <td><b>${data.NAMA}</b></td>
+                    <td>${data['TANGGAL LAHIR']}</td>
+                `;
+                previewTableBody.appendChild(row);
+            }
+            if(extractedDataGlobal.length > 100){
+                let infoRow = document.createElement('tr');
+                infoRow.innerHTML = `<td colspan="4" style="text-align:center; color:gray; font-style:italic; padding:15px;">... dan ${extractedDataGlobal.length - 100} data lainnya (silakan Download Excel untuk melihat semuanya)</td>`;
+                previewTableBody.appendChild(infoRow);
+            }
+
+            tableContainer.style.display = 'block';
+            actionArea.style.display = 'block';
+        } else {
+            statusDiv.innerHTML = `<span style="color:red">Gagal: Pola format NIK tidak ditemukan. Pastikan file valid!</span>`;
+            tableContainer.style.display = 'none';
+            actionArea.style.display = 'none';
+        }
+
+        processBtn.disabled = false;
+        processBtn.innerText = "Mulai Ekstraksi Lagi";
+    });
+
+    downloadBtn.addEventListener('click', () => {
+        if(extractedDataGlobal.length === 0) return;
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(extractedDataGlobal);
+        
+        const wscols = [{wch: 6}, {wch: 25}, {wch: 40}, {wch: 18}];
+        ws['!cols'] = wscols;
+        
+        XLSX.utils.book_append_sheet(wb, ws, "Daftar Pemilih");
+        XLSX.writeFile(wb, "Data_Hasil_Ekstraksi.xlsx");
+    });
+</script>
+
+</body>
+</html>
