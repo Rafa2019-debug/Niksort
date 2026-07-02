@@ -99,9 +99,16 @@
         }
         .history-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 10px; margin-bottom: 15px; }
         .history-header h2 { margin: 0; font-size: 18px; color: var(--text-main); }
-        .history-list { font-size: 13px; max-height: 200px; overflow-y: auto; }
-        .history-item { display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #f3f4f6; }
+        .history-list { font-size: 13px; max-height: 250px; overflow-y: auto; }
+        .history-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #E5E7EB; }
         .history-item:nth-child(even) { background-color: #F9FAFB; }
+        .history-item:hover { background-color: #F3F4F6; }
+        
+        .btn-delete-item {
+            background: none; border: none; color: #EF4444; font-size: 14px;
+            cursor: pointer; padding: 5px; border-radius: 4px; transition: background 0.2s;
+        }
+        .btn-delete-item:hover { background-color: #FEE2E2; }
         
         .badge { background-color: #DBEAFE; color: #1E40AF; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; margin: 0 2px; }
     </style>
@@ -157,7 +164,7 @@
 <div class="history-container">
     <div class="history-header">
         <h2>🗂️ Riwayat File yang Pernah Diproses</h2>
-        <button id="clearHistoryBtn" class="btn btn-danger btn-small">Bersihkan Riwayat</button>
+        <button id="clearHistoryBtn" class="btn btn-danger btn-small">Bersihkan Semua Riwayat</button>
     </div>
     <div class="history-list" id="historyList">
         <p style="text-align: center; color: gray;">Belum ada riwayat file.</p>
@@ -187,28 +194,46 @@
     const STORAGE_KEY = 'pemilihFileHistory_v2';
     let fileHistory = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
 
+    // FUNGSI RENDER TAMPILAN RIWAYAT
     function renderHistory() {
         if (fileHistory.length === 0) {
             historyListDiv.innerHTML = '<p style="text-align: center; color: gray; margin:10px 0;">Belum ada riwayat file.</p>';
             return;
         }
         let html = '';
-        const reversedHistory = [...fileHistory].reverse();
-        reversedHistory.forEach(item => {
+        // Looping terbalik agar yang paling baru tampil di atas
+        for (let i = fileHistory.length - 1; i >= 0; i--) {
+            let item = fileHistory[i];
             html += `
                 <div class="history-item">
                     <span>📄 <b>${item.name}</b> <span style="color:gray">(${Math.round(item.size/1024)} KB)</span></span>
-                    <span style="color: #059669;">✔️ Diproses: ${item.date}</span>
+                    <div>
+                        <span style="color: #059669; margin-right: 10px; font-size:12px;">✔️ ${item.date}</span>
+                        <button class="btn-delete-item" onclick="deleteHistoryItem(${i})" title="Hapus file ini dari riwayat">❌</button>
+                    </div>
                 </div>
             `;
-        });
+        }
         historyListDiv.innerHTML = html;
     }
     
+    // FUNGSI HAPUS SATU FILE DARI RIWAYAT
+    window.deleteHistoryItem = function(index) {
+        if(confirm(`Apakah Anda yakin ingin menghapus file "${fileHistory[index].name}" dari riwayat?\n(Sistem akan bisa memproses ulang file ini)`)) {
+            // Hapus index tertentu dari array
+            fileHistory.splice(index, 1);
+            // Simpan lagi ke memori browser
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(fileHistory));
+            // Perbarui tampilan
+            renderHistory();
+        }
+    };
+    
     renderHistory();
 
+    // FUNGSI HAPUS SEMUA RIWAYAT
     clearHistoryBtn.addEventListener('click', () => {
-        if(confirm("Apakah Anda yakin ingin menghapus semua ingatan riwayat file?")){
+        if(confirm("Apakah Anda yakin ingin menghapus SEMUA riwayat file?")){
             fileHistory = [];
             localStorage.setItem(STORAGE_KEY, JSON.stringify(fileHistory));
             renderHistory();
@@ -370,19 +395,15 @@
         return data;
     }
 
-    // LOGIKA TXT SUPER EXTREME UNTUK DATA YANG HANCUR
     function processTXT(text) {
         let data = [];
         let lines = text.split(/\r?\n/);
         for (let i = 0; i < lines.length; i++) {
             let line = lines[i];
-            
-            // Mencari angka berderet panjang (Minimal 15 digit)
             let digitSequences = line.match(/\d{15,}/g) || [];
             let dates = line.match(/\d{2,4}[-/|]\d{1,2}[-/|]\d{1,4}/g) || [];
 
             if (digitSequences.length >= 1) {
-                // Ambil grup angka terakhir, lalu potong ambil HANYA 16 DIGIT TERAKHIR sebagai NIK
                 let targetSeq = digitSequences.length >= 2 ? digitSequences[1] : digitSequences[0];
                 let nik = targetSeq.length >= 16 ? targetSeq.slice(-16) : targetSeq;
                 
@@ -415,7 +436,6 @@
                     }
                     
                     let cleanText = textBeforeDate.trim();
-                    // Paksa pisahkan dengan spasi ganda
                     let doubleSpaceSplit = cleanText.split(/\s{2,}/);
                     nama = doubleSpaceSplit[0];
                     
@@ -427,7 +447,6 @@
                         }
                     }
                     
-                    // Bersihkan text dari status "BENAR", "HAPUS", "DATA GANDA" dll di akhir file
                     nama = nama.replace(/\b(BENAR|HAPUS|DATA|GANDA|L|P|S|B)\b/g, '').trim();
                     nama = nama.replace(/[^a-zA-Z\s.,']/g, '').trim();
                 } else {
