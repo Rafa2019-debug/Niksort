@@ -93,7 +93,6 @@
         }
         .download-group { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 15px; flex-wrap: wrap; }
         
-        /* Riwayat Section */
         .history-container {
             background-color: var(--box-bg); padding: 25px; border-radius: 12px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); width: 100%; max-width: 900px;
@@ -182,21 +181,17 @@
     const historyListDiv = document.getElementById('historyList');
     const clearHistoryBtn = document.getElementById('clearHistoryBtn');
 
-    let selectedFiles = []; // Antrean file saat ini
+    let selectedFiles = []; 
     let extractedDataGlobal = [];
     
-    // Ambil riwayat dari LocalStorage browser
     const STORAGE_KEY = 'pemilihFileHistory_v2';
     let fileHistory = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
 
-    // Fungsi Render Riwayat
     function renderHistory() {
         if (fileHistory.length === 0) {
             historyListDiv.innerHTML = '<p style="text-align: center; color: gray; margin:10px 0;">Belum ada riwayat file.</p>';
             return;
         }
-        
-        // Urutkan dari yang terbaru (reverse)
         let html = '';
         const reversedHistory = [...fileHistory].reverse();
         reversedHistory.forEach(item => {
@@ -210,19 +205,16 @@
         historyListDiv.innerHTML = html;
     }
     
-    // Panggil render saat pertama kali buka web
     renderHistory();
 
-    // Hapus Riwayat Permanen
     clearHistoryBtn.addEventListener('click', () => {
-        if(confirm("Apakah Anda yakin ingin menghapus semua ingatan riwayat file? Sistem tidak akan bisa mendeteksi file lama lagi jika riwayat dihapus.")){
+        if(confirm("Apakah Anda yakin ingin menghapus semua ingatan riwayat file?")){
             fileHistory = [];
             localStorage.setItem(STORAGE_KEY, JSON.stringify(fileHistory));
             renderHistory();
         }
     });
 
-    // Drag & Drop Handling
     dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = 'var(--primary)'; });
     dropZone.addEventListener('dragleave', (e) => { e.preventDefault(); dropZone.style.borderColor = 'var(--border-color)'; });
     dropZone.addEventListener('drop', (e) => {
@@ -233,7 +225,6 @@
         if (e.target.files.length > 0) addFilesToQueue(e.target.files);
     });
 
-    // SISTEM ANTREAN & PENGECEKAN RIWAYAT LAMA
     function addFilesToQueue(files) {
         let addedCount = 0;
         let ignoredCurrentSession = 0;
@@ -241,24 +232,16 @@
 
         for (let i = 0; i < files.length; i++) {
             let file = files[i];
-            
-            // Cek apakah ada di riwayat lama (Local Storage)
             let isPastDuplicate = fileHistory.some(f => f.name === file.name && f.size === file.size);
-            // Cek apakah sudah ada di antrean saat ini
             let isCurrentDuplicate = selectedFiles.some(f => f.name === file.name && f.size === file.size);
             
-            if (isPastDuplicate) {
-                ignoredFromHistory++;
-            } else if (isCurrentDuplicate) {
-                ignoredCurrentSession++;
-            } else {
-                selectedFiles.push(file);
-                addedCount++;
-            }
+            if (isPastDuplicate) ignoredFromHistory++;
+            else if (isCurrentDuplicate) ignoredCurrentSession++;
+            else { selectedFiles.push(file); addedCount++; }
         }
         
         updateUIStatus(ignoredCurrentSession, ignoredFromHistory);
-        fileInput.value = ""; // Reset value input HTML
+        fileInput.value = ""; 
     }
 
     function updateUIStatus(ignoredCurrent, ignoredHistory) {
@@ -268,40 +251,27 @@
             fileListDiv.style.display = "block";
             
             let msg = `<span style="color:var(--primary)">${selectedFiles.length} file baru siap diproses.</span>`;
-            
-            if (ignoredHistory > 0) {
-                msg += `<br><span style="color:#DC2626; font-size:13px;">(⚠️ <b>${ignoredHistory} file DITOLAK</b> karena sudah pernah diproses di hari sebelumnya)</span>`;
-            }
-            if (ignoredCurrent > 0) {
-                msg += `<br><span style="color:#D97706; font-size:13px;">(⚠️ ${ignoredCurrent} file diabaikan karena kembar dengan antrean saat ini)</span>`;
-            }
+            if (ignoredHistory > 0) msg += `<br><span style="color:#DC2626; font-size:13px;">(⚠️ <b>${ignoredHistory} file DITOLAK</b> karena sudah pernah diproses sebelumnya)</span>`;
+            if (ignoredCurrent > 0) msg += `<br><span style="color:#D97706; font-size:13px;">(⚠️ ${ignoredCurrent} file diabaikan karena kembar dengan antrean)</span>`;
             
             statusDiv.innerHTML = msg;
-
             let fileNames = selectedFiles.map(f => f.name).join(', ');
             fileListDiv.innerHTML = `<b>Daftar Antrean Saat Ini:</b> ${fileNames}`;
         } else {
-            // Jika semua file yang dimasukkan ternyata duplikat riwayat
             if (ignoredHistory > 0 || ignoredCurrent > 0) {
-                statusDiv.innerHTML = `<span style="color:#DC2626; font-weight:bold;">Semua file yang Anda masukkan DITOLAK karena sudah ada di riwayat atau antrean.</span>`;
+                statusDiv.innerHTML = `<span style="color:#DC2626; font-weight:bold;">Semua file ditolak karena sudah ada di riwayat atau antrean.</span>`;
             }
         }
     }
 
-    // Tombol Batalkan Antrean
     clearBtn.addEventListener('click', resetAll);
 
     function resetAll() {
-        selectedFiles = [];
-        extractedDataGlobal = [];
-        processBtn.disabled = true;
-        clearBtn.style.display = "none";
-        fileListDiv.style.display = "none";
-        tableContainer.style.display = 'none';
-        actionArea.style.display = 'none';
-        statusDiv.innerHTML = '';
-        fileListDiv.innerHTML = '';
-        fileInput.value = "";
+        selectedFiles = []; extractedDataGlobal = [];
+        processBtn.disabled = true; clearBtn.style.display = "none";
+        fileListDiv.style.display = "none"; tableContainer.style.display = 'none';
+        actionArea.style.display = 'none'; statusDiv.innerHTML = '';
+        fileListDiv.innerHTML = ''; fileInput.value = "";
     }
 
     function processFileAsync(file) {
@@ -325,9 +295,7 @@
                             allSheetData = allSheetData.concat(processSheetRows(rows));
                         });
                         resolve(allSheetData);
-                    } catch (err) {
-                        reject(err);
-                    }
+                    } catch (err) { reject(err); }
                 };
                 reader.onerror = reject;
                 reader.readAsArrayBuffer(file);
@@ -365,8 +333,7 @@
                 if (cellVal instanceof Date) {
                     let d = cellVal;
                     tgl = ("0" + d.getDate()).slice(-2) + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + d.getFullYear();
-                    tglColIndex = c;
-                    break;
+                    tglColIndex = c; break;
                 }
                 if (typeof cellVal === 'string' || typeof cellVal === 'number') {
                     let dateStr = String(cellVal).trim();
@@ -379,8 +346,7 @@
                             let year = parseInt(p3) > 50 ? "19" + p3 : "20" + p3;
                             tgl = `${("0"+p1).slice(-2)}-${p2}-${year}`;
                         }
-                        tglColIndex = c;
-                        break;
+                        tglColIndex = c; break;
                     }
                 }
             }
@@ -396,8 +362,7 @@
                         if (upperStr.includes(word)) { isExcluded = true; break; }
                     }
                     if (isExcluded) continue;
-                    nama = cellStr;
-                    break;
+                    nama = cellStr; break;
                 }
             }
             if (niko && nama) { data.push({ NIK: niko, NAMA: nama, 'TANGGAL LAHIR': tgl || '-' }); }
@@ -405,45 +370,76 @@
         return data;
     }
 
+    // LOGIKA TXT SUPER EXTREME UNTUK DATA YANG HANCUR
     function processTXT(text) {
         let data = [];
         let lines = text.split(/\r?\n/);
         for (let i = 0; i < lines.length; i++) {
             let line = lines[i];
-            let sixteenDigits = line.match(/\b\d{15,16}\b/g) || [];
-            let dates = line.match(/\b(\d{2,4})[-/|]\d{1,2}[-/|](\d{2,4})\b/g) || [];
+            
+            // Mencari angka berderet panjang (Minimal 15 digit)
+            let digitSequences = line.match(/\d{15,}/g) || [];
+            let dates = line.match(/\d{2,4}[-/|]\d{1,2}[-/|]\d{1,4}/g) || [];
 
-            if (sixteenDigits.length >= 1) {
-                let nik = sixteenDigits.length >= 2 ? sixteenDigits[1] : sixteenDigits[0];
+            if (digitSequences.length >= 1) {
+                // Ambil grup angka terakhir, lalu potong ambil HANYA 16 DIGIT TERAKHIR sebagai NIK
+                let targetSeq = digitSequences.length >= 2 ? digitSequences[1] : digitSequences[0];
+                let nik = targetSeq.length >= 16 ? targetSeq.slice(-16) : targetSeq;
+                
                 let tgl = '-';
+                let dateStrMatched = null;
                 if(dates.length > 0) {
+                    dateStrMatched = dates[0];
                     let rawTgl = dates[0].replace(/[\/|]/g, '-');
                     let p = rawTgl.split('-');
-                    if (p[0].length === 4) { tgl = `${("0"+p[2]).slice(-2)}-${("0"+p[1]).slice(-2)}-${p[0]}`; }
-                    else { tgl = `${("0"+p[0]).slice(-2)}-${("0"+p[1]).slice(-2)}-${p[2]}`; }
+                    if (p[0].length === 4) { 
+                        let d = p[2].length === 1 ? "0"+p[2] : p[2];
+                        let m = p[1].length === 1 ? "0"+p[1] : p[1];
+                        tgl = `${d}-${m}-${p[0]}`; 
+                    } else if (p[2].length >= 2) { 
+                        let y = p[2].length === 4 ? p[2] : (parseInt(p[2]) > 50 ? "19"+p[2] : "20"+p[2]);
+                        let d = p[0].length === 1 ? "0"+p[0] : p[0];
+                        let m = p[1].length === 1 ? "0"+p[1] : p[1];
+                        tgl = `${d}-${m}-${y}`; 
+                    }
                 }
 
                 let nama = "TIDAK DIKETAHUI";
-                let splitParts = line.split(nik);
-                let leftSide = splitParts[0].trim();
-                let leftTextMatches = leftSide.match(/[a-zA-Z]{3,}/g);
+                let splitParts = line.split(targetSeq);
+                let rightSide = splitParts.length > 1 ? splitParts[1] : "";
                 
-                if (leftTextMatches) {
-                    nama = leftSide.replace(/[^a-zA-Z\s.,']/g, '').trim();
-                } else if (splitParts.length > 1) {
-                    let rightSide = splitParts[1];
-                    let textBeforeDate = dates.length > 0 ? rightSide.split(dates[0])[0].trim() : rightSide;
-                    let words = textBeforeDate.split(/\s+/);
-                    words = words.filter(w => !['L','P','S','B','l','p','s','b'].includes(w) && !/\d/.test(w));
+                if (rightSide.trim().length > 0) {
+                    let textBeforeDate = rightSide;
+                    if (dateStrMatched) {
+                        textBeforeDate = rightSide.split(dateStrMatched)[0];
+                    }
                     
-                    if (words.length > 1) {
-                        words.pop(); 
-                        nama = words.join(" ");
-                    } else if (words.length === 1) {
-                        nama = words[0];
+                    let cleanText = textBeforeDate.trim();
+                    // Paksa pisahkan dengan spasi ganda
+                    let doubleSpaceSplit = cleanText.split(/\s{2,}/);
+                    nama = doubleSpaceSplit[0];
+                    
+                    if (doubleSpaceSplit.length === 1 && dateStrMatched) {
+                        let words = nama.split(/\s+/);
+                        if (words.length > 1) {
+                            words.pop(); 
+                            nama = words.join(" ");
+                        }
+                    }
+                    
+                    // Bersihkan text dari status "BENAR", "HAPUS", "DATA GANDA" dll di akhir file
+                    nama = nama.replace(/\b(BENAR|HAPUS|DATA|GANDA|L|P|S|B)\b/g, '').trim();
+                    nama = nama.replace(/[^a-zA-Z\s.,']/g, '').trim();
+                } else {
+                    let leftSide = splitParts[0].trim();
+                    let leftTextMatches = leftSide.match(/[a-zA-Z]{3,}/g);
+                    if (leftTextMatches) {
+                        nama = leftSide.replace(/[^a-zA-Z\s.,']/g, '').trim();
+                        nama = nama.replace(/\b(BENAR|HAPUS|DATA|GANDA|L|P|S|B)\b/g, '').trim();
                     }
                 }
-                if (nama !== "TIDAK DIKETAHUI" && nama !== "") {
+
+                if (nama !== "" && nama !== "TIDAK DIKETAHUI") {
                     data.push({ NIK: nik, NAMA: nama, 'TANGGAL LAHIR': tgl });
                 }
             }
@@ -454,21 +450,18 @@
     processBtn.addEventListener('click', async () => {
         if (selectedFiles.length === 0) return;
         
-        processBtn.disabled = true;
-        clearBtn.disabled = true;
+        processBtn.disabled = true; clearBtn.disabled = true;
         processBtn.innerText = "Mengekstrak...";
         statusDiv.innerHTML = "Sedang membaca data, mohon tunggu...";
         
-        let allExtracted = [];
-        let errorCount = 0;
-        let successfullyProcessedFiles = [];
+        let allExtracted = []; let errorCount = 0; let successfullyProcessedFiles = [];
         
         for (let i = 0; i < selectedFiles.length; i++) {
             let file = selectedFiles[i];
             try {
                 let parsedData = await processFileAsync(file);
                 allExtracted = allExtracted.concat(parsedData);
-                successfullyProcessedFiles.push(file); // Catat file yang sukses
+                successfullyProcessedFiles.push(file); 
             } catch (error) {
                 console.error(`Gagal diproses file ${file.name}:`, error);
                 errorCount++;
@@ -479,11 +472,8 @@
         let dupeCount = 0;
 
         for (let item of allExtracted) {
-            if (!uniqueDataMap.has(item.NIK)) {
-                uniqueDataMap.set(item.NIK, item);
-            } else {
-                dupeCount++; 
-            }
+            if (!uniqueDataMap.has(item.NIK)) uniqueDataMap.set(item.NIK, item);
+            else dupeCount++; 
         }
 
         extractedDataGlobal = Array.from(uniqueDataMap.values()).map((item, index) => {
@@ -496,34 +486,22 @@
         });
 
         if (extractedDataGlobal.length > 0) {
-            // SIMPAN RIWAYAT KE LOCAL STORAGE (Browser)
             const dateStr = new Date().toLocaleString('id-ID', {day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute:'2-digit'});
-            
             successfullyProcessedFiles.forEach(f => {
-                fileHistory.push({
-                    name: f.name,
-                    size: f.size,
-                    date: dateStr
-                });
+                fileHistory.push({ name: f.name, size: f.size, date: dateStr });
             });
-            // Batasi riwayat maksimal 500 file terakhir agar memori browser tidak penuh
-            if (fileHistory.length > 500) {
-                fileHistory = fileHistory.slice(fileHistory.length - 500);
-            }
+            if (fileHistory.length > 500) fileHistory = fileHistory.slice(fileHistory.length - 500);
             
             localStorage.setItem(STORAGE_KEY, JSON.stringify(fileHistory));
-            renderHistory(); // Update tampilan Riwayat File
+            renderHistory(); 
 
             let msg = `<span style="color:#10B981">Ekstraksi berhasil diselesaikan!</span>`;
             if(errorCount > 0) msg += ` <span style="color:red">(${errorCount} file gagal)</span>`;
             statusDiv.innerHTML = msg;
             
             resultCountText.innerText = `✅ Mengekstrak ${extractedDataGlobal.length} baris pemilih unik!`;
-            if (dupeCount > 0) {
-                duplicateCountText.innerText = `Membuang ${dupeCount} baris data NIK ganda di dalam antrean ini.`;
-            } else {
-                duplicateCountText.innerText = ``;
-            }
+            if (dupeCount > 0) duplicateCountText.innerText = `Membuang ${dupeCount} baris data NIK ganda.`;
+            else duplicateCountText.innerText = ``;
             
             previewTableBody.innerHTML = '';
             const previewLimit = Math.min(extractedDataGlobal.length, 100);
@@ -544,40 +522,31 @@
                 previewTableBody.appendChild(infoRow);
             }
 
-            tableContainer.style.display = 'block';
-            actionArea.style.display = 'block';
-            
-            // Kosongkan daftar antrean file setelah selesai
-            selectedFiles = [];
-            fileListDiv.style.display = "none";
-            clearBtn.style.display = "none";
-            customFileNameInput.value = "";
+            tableContainer.style.display = 'block'; actionArea.style.display = 'block';
+            selectedFiles = []; fileListDiv.style.display = "none";
+            clearBtn.style.display = "none"; customFileNameInput.value = "";
             
         } else {
-            statusDiv.innerHTML = `<span style="color:red">Gagal: Pola format tidak ditemukan.</span>`;
-            tableContainer.style.display = 'none';
-            actionArea.style.display = 'none';
+            statusDiv.innerHTML = `<span style="color:red">Gagal: Pola format tidak ditemukan pada file tersebut.</span>`;
+            tableContainer.style.display = 'none'; actionArea.style.display = 'none';
         }
 
-        processBtn.disabled = true; // Nonaktifkan sampai upload file baru lagi
-        clearBtn.disabled = false;
+        processBtn.disabled = true; clearBtn.disabled = false;
         processBtn.innerText = "▶️ Mulai Ekstraksi";
     });
 
     downloadBtn.addEventListener('click', () => {
         if(extractedDataGlobal.length === 0) return;
-        
         let finalFileName = customFileNameInput.value.trim();
-        if (finalFileName === "") { finalFileName = "Data_Hasil_Ekstraksi"; }
-        if (!finalFileName.toLowerCase().endsWith('.xlsx')) { finalFileName += ".xlsx"; }
+        if (finalFileName === "") finalFileName = "Data_Hasil_Ekstraksi_Bersih";
+        if (!finalFileName.toLowerCase().endsWith('.xlsx')) finalFileName += ".xlsx";
 
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.json_to_sheet(extractedDataGlobal);
-        
         const wscols = [{wch: 6}, {wch: 25}, {wch: 40}, {wch: 18}];
         ws['!cols'] = wscols;
         
-        XLSX.utils.book_append_sheet(wb, ws, "Daftar Pemilih");
+        XLSX.utils.book_append_sheet(wb, ws, "Daftar Pemilih Unik");
         XLSX.writeFile(wb, finalFileName);
     });
 </script>
