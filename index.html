@@ -72,6 +72,42 @@
         }
         .input-filename:focus { border-color: var(--primary); }
 
+        .format-selector {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            margin: 15px 0;
+            padding: 12px 20px;
+            background: #F0FDF4;
+            border: 1px solid #BBF7D0;
+            border-radius: 8px;
+            flex-wrap: wrap;
+        }
+        .format-selector label {
+            font-size: 14px;
+            color: var(--text-main);
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .format-selector input[type="radio"] {
+            cursor: pointer;
+            width: 16px;
+            height: 16px;
+            accent-color: var(--primary);
+        }
+        .format-preview {
+            font-family: monospace;
+            background: #1F2937;
+            color: #10B981;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
         #status { margin: 15px 0 5px; font-weight: bold; text-align: center; line-height: 1.5; }
         #fileList { 
             font-size: 13px; color: var(--text-muted); text-align: center; 
@@ -152,6 +188,19 @@
     <div class="actions" id="actionArea">
         <h3 style="color: #059669; margin: 0 0 5px 0;" id="resultCount"></h3>
         <p style="color: #D97706; font-size: 13px; margin: 0 0 15px 0;" id="duplicateCountText"></p>
+
+        <!-- PILIHAN FORMAT TANGGAL -->
+        <div class="format-selector">
+            <span style="font-weight:600; color: var(--primary);">📅 Format Tanggal Lahir:</span>
+            <label>
+                <input type="radio" name="dateFormat" value="dash" checked>
+                <span class="format-preview">24-12-1996</span> (Strip)
+            </label>
+            <label>
+                <input type="radio" name="dateFormat" value="slash">
+                <span class="format-preview">24/12/1996</span> (Slash)
+            </label>
+        </div>
 
         <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 10px;">Beri nama file sebelum didownload:</p>
         <div class="download-group">
@@ -549,26 +598,42 @@
         processBtn.innerText = "▶️ Mulai Ekstraksi";
     });
 
+    // ========== FUNGSI FORMAT TANGGAL ==========
+    function getFormattedDate(rawDate, format) {
+        if (!rawDate || rawDate === '-') return '-';
+        // rawDate format internal: dd-mm-yyyy
+        const parts = rawDate.split('-');
+        if (parts.length !== 3) return rawDate;
+        const day = parts[0];
+        const month = parts[1];
+        const year = parts[2];
+        if (format === 'slash') {
+            return `${day}/${month}/${year}`;
+        }
+        return `${day}-${month}-${year}`; // default dash
+    }
+
     // ========== DOWNLOAD CSV ==========
     downloadCSVBtn.addEventListener('click', () => {
         if(extractedDataGlobal.length === 0) return;
+
+        // Ambil pilihan format tanggal
+        const selectedFormat = document.querySelector('input[name="dateFormat"]:checked').value;
+
         let finalFileName = customFileNameInput.value.trim();
         if (finalFileName === "") finalFileName = "Data_Hasil_Ekstraksi_Bersih";
         if (!finalFileName.toLowerCase().endsWith('.csv')) finalFileName += ".csv";
 
-        // Header: NIK, NAMA, TANGGAL LAHIR (tanpa NO)
         const headers = ["NIK", "NAMA", "TANGGAL LAHIR"];
 
-        // Buat baris data - tanggal tetap pakai format asli (dd-mm-yyyy)
         const rows = extractedDataGlobal.map(item => {
             return [
                 item.NIK,
                 item.NAMA,
-                item['TANGGAL LAHIR'] || '-'
+                getFormattedDate(item['TANGGAL LAHIR'], selectedFormat)
             ];
         });
 
-        // Escape CSV: jika ada koma, newline, atau quote, bungkus dengan quotes
         function escapeCSV(val) {
             let str = String(val);
             if (str.includes(',') || str.includes('"') || str.includes('\n')) {
@@ -596,24 +661,25 @@
     // ========== DOWNLOAD EXCEL ==========
     downloadExcelBtn.addEventListener('click', () => {
         if(extractedDataGlobal.length === 0) return;
+
+        // Ambil pilihan format tanggal
+        const selectedFormat = document.querySelector('input[name="dateFormat"]:checked').value;
+
         let finalFileName = customFileNameInput.value.trim();
         if (finalFileName === "") finalFileName = "Data_Hasil_Ekstraksi_Bersih";
         if (!finalFileName.toLowerCase().endsWith('.xlsx')) finalFileName += ".xlsx";
 
-        // Mapping: Hanya NIK, Nama, Tgl Lahir (tanpa NO)
-        // Excel tetap pakai / untuk kompatibilitas
         const exportData = extractedDataGlobal.map(item => {
             return {
                 "NIK": item.NIK,
                 "NAMA": item.NAMA,
-                "TANGGAL LAHIR": item['TANGGAL LAHIR'] ? item['TANGGAL LAHIR'].replace(/-/g, '/') : '-'
+                "TANGGAL LAHIR": getFormattedDate(item['TANGGAL LAHIR'], selectedFormat)
             };
         });
 
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.json_to_sheet(exportData);
 
-        // Lebar kolom (3 kolom)
         const wscols = [{wch: 20}, {wch: 35}, {wch: 15}];
         ws['!cols'] = wscols;
 
