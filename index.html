@@ -38,7 +38,7 @@
         }
         h1 { margin-top: 0; font-size: 24px; color: var(--primary); text-align: center; }
         p.subtitle { text-align: center; color: var(--text-muted); margin-bottom: 20px; font-size: 15px; }
-        
+
         .upload-area {
             border: 2px dashed var(--border-color);
             border-radius: 8px;
@@ -51,7 +51,7 @@
         }
         .upload-area:hover { border-color: var(--primary); background-color: #EEF2FF; }
         input[type="file"] { display: none; }
-        
+
         .btn {
             background-color: var(--primary); color: white; border: none;
             padding: 12px 20px; border-radius: 6px; font-size: 15px;
@@ -71,7 +71,7 @@
             border-radius: 6px; font-size: 15px; width: 250px; outline: none;
         }
         .input-filename:focus { border-color: var(--primary); }
-        
+
         #status { margin: 15px 0 5px; font-weight: bold; text-align: center; line-height: 1.5; }
         #fileList { 
             font-size: 13px; color: var(--text-muted); text-align: center; 
@@ -86,13 +86,13 @@
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 14px; white-space: nowrap; }
         th { background-color: #F9FAFB; position: sticky; top: 0; z-index: 10; }
-        
+
         .actions {
             text-align: center; margin-top: 25px; display: none;
             background-color: #F9FAFB; padding: 20px; border-radius: 8px; border: 1px solid var(--border-color);
         }
         .download-group { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 15px; flex-wrap: wrap; }
-        
+
         .history-container {
             background-color: var(--box-bg); padding: 25px; border-radius: 12px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); width: 100%; max-width: 900px;
@@ -103,13 +103,13 @@
         .history-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #E5E7EB; }
         .history-item:nth-child(even) { background-color: #F9FAFB; }
         .history-item:hover { background-color: #F3F4F6; }
-        
+
         .btn-delete-item {
             background: none; border: none; color: #EF4444; font-size: 14px;
             cursor: pointer; padding: 5px; border-radius: 4px; transition: background 0.2s;
         }
         .btn-delete-item:hover { background-color: #FEE2E2; }
-        
+
         .badge { background-color: #DBEAFE; color: #1E40AF; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; margin: 0 2px; }
     </style>
 </head>
@@ -125,7 +125,7 @@
         <p style="font-size: 13px; color: var(--text-muted);">Mendukung semua format model A-KWK / DPTHP</p>
     </div>
     <input type="file" id="fileInput" multiple accept=".csv, .txt, .xlsx, .xls">
-    
+
     <div id="fileList"></div>
     <div id="status"></div>
 
@@ -152,11 +152,12 @@
     <div class="actions" id="actionArea">
         <h3 style="color: #059669; margin: 0 0 5px 0;" id="resultCount"></h3>
         <p style="color: #D97706; font-size: 13px; margin: 0 0 15px 0;" id="duplicateCountText"></p>
-        
+
         <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 10px;">Beri nama file sebelum didownload:</p>
         <div class="download-group">
             <input type="text" id="customFileName" class="input-filename" placeholder="Contoh: TPS 01 - 05 Desa Maju">
-            <button id="downloadBtn" class="btn btn-success">⬇️ Download Excel</button>
+            <button id="downloadCSVBtn" class="btn btn-success">⬇️ Download CSV</button>
+            <button id="downloadExcelBtn" class="btn btn-success">⬇️ Download Excel</button>
         </div>
     </div>
 </div>
@@ -181,7 +182,8 @@
     const tableContainer = document.getElementById('tableContainer');
     const previewTableBody = document.querySelector('#previewTable tbody');
     const actionArea = document.getElementById('actionArea');
-    const downloadBtn = document.getElementById('downloadBtn');
+    const downloadCSVBtn = document.getElementById('downloadCSVBtn');
+    const downloadExcelBtn = document.getElementById('downloadExcelBtn');
     const resultCountText = document.getElementById('resultCount');
     const duplicateCountText = document.getElementById('duplicateCountText');
     const customFileNameInput = document.getElementById('customFileName');
@@ -190,18 +192,16 @@
 
     let selectedFiles = []; 
     let extractedDataGlobal = [];
-    
+
     const STORAGE_KEY = 'pemilihFileHistory_v2';
     let fileHistory = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
 
-    // FUNGSI RENDER TAMPILAN RIWAYAT
     function renderHistory() {
         if (fileHistory.length === 0) {
             historyListDiv.innerHTML = '<p style="text-align: center; color: gray; margin:10px 0;">Belum ada riwayat file.</p>';
             return;
         }
         let html = '';
-        // Looping terbalik agar yang paling baru tampil di atas
         for (let i = fileHistory.length - 1; i >= 0; i--) {
             let item = fileHistory[i];
             html += `
@@ -216,22 +216,17 @@
         }
         historyListDiv.innerHTML = html;
     }
-    
-    // FUNGSI HAPUS SATU FILE DARI RIWAYAT
+
     window.deleteHistoryItem = function(index) {
         if(confirm(`Apakah Anda yakin ingin menghapus file "${fileHistory[index].name}" dari riwayat?\n(Sistem akan bisa memproses ulang file ini)`)) {
-            // Hapus index tertentu dari array
             fileHistory.splice(index, 1);
-            // Simpan lagi ke memori browser
             localStorage.setItem(STORAGE_KEY, JSON.stringify(fileHistory));
-            // Perbarui tampilan
             renderHistory();
         }
     };
-    
+
     renderHistory();
 
-    // FUNGSI HAPUS SEMUA RIWAYAT
     clearHistoryBtn.addEventListener('click', () => {
         if(confirm("Apakah Anda yakin ingin menghapus SEMUA riwayat file?")){
             fileHistory = [];
@@ -259,12 +254,12 @@
             let file = files[i];
             let isPastDuplicate = fileHistory.some(f => f.name === file.name && f.size === file.size);
             let isCurrentDuplicate = selectedFiles.some(f => f.name === file.name && f.size === file.size);
-            
+
             if (isPastDuplicate) ignoredFromHistory++;
             else if (isCurrentDuplicate) ignoredCurrentSession++;
             else { selectedFiles.push(file); addedCount++; }
         }
-        
+
         updateUIStatus(ignoredCurrentSession, ignoredFromHistory);
         fileInput.value = ""; 
     }
@@ -274,11 +269,11 @@
             processBtn.disabled = false;
             clearBtn.style.display = "inline-block";
             fileListDiv.style.display = "block";
-            
+
             let msg = `<span style="color:var(--primary)">${selectedFiles.length} file baru siap diproses.</span>`;
             if (ignoredHistory > 0) msg += `<br><span style="color:#DC2626; font-size:13px;">(⚠️ <b>${ignoredHistory} file DITOLAK</b> karena sudah pernah diproses sebelumnya)</span>`;
             if (ignoredCurrent > 0) msg += `<br><span style="color:#D97706; font-size:13px;">(⚠️ ${ignoredCurrent} file diabaikan karena kembar dengan antrean)</span>`;
-            
+
             statusDiv.innerHTML = msg;
             let fileNames = selectedFiles.map(f => f.name).join(', ');
             fileListDiv.innerHTML = `<b>Daftar Antrean Saat Ini:</b> ${fileNames}`;
@@ -338,7 +333,7 @@
 
             let niko = null; let nama = null; let tgl = null;
             let nikColIndex = -1; let tglColIndex = -1;
-            
+
             let sixteenDigitCols = [];
             for (let c = 0; c < row.length; c++) {
                 let cellStr = String(row[c] || '').trim();
@@ -406,7 +401,7 @@
             if (digitSequences.length >= 1) {
                 let targetSeq = digitSequences.length >= 2 ? digitSequences[1] : digitSequences[0];
                 let nik = targetSeq.length >= 16 ? targetSeq.slice(-16) : targetSeq;
-                
+
                 let tgl = '-';
                 let dateStrMatched = null;
                 if(dates.length > 0) {
@@ -428,17 +423,17 @@
                 let nama = "TIDAK DIKETAHUI";
                 let splitParts = line.split(targetSeq);
                 let rightSide = splitParts.length > 1 ? splitParts[1] : "";
-                
+
                 if (rightSide.trim().length > 0) {
                     let textBeforeDate = rightSide;
                     if (dateStrMatched) {
                         textBeforeDate = rightSide.split(dateStrMatched)[0];
                     }
-                    
+
                     let cleanText = textBeforeDate.trim();
                     let doubleSpaceSplit = cleanText.split(/\s{2,}/);
                     nama = doubleSpaceSplit[0];
-                    
+
                     if (doubleSpaceSplit.length === 1 && dateStrMatched) {
                         let words = nama.split(/\s+/);
                         if (words.length > 1) {
@@ -446,7 +441,7 @@
                             nama = words.join(" ");
                         }
                     }
-                    
+
                     nama = nama.replace(/\b(BENAR|HAPUS|DATA|GANDA|L|P|S|B)\b/g, '').trim();
                     nama = nama.replace(/[^a-zA-Z\s.,']/g, '').trim();
                 } else {
@@ -468,13 +463,13 @@
 
     processBtn.addEventListener('click', async () => {
         if (selectedFiles.length === 0) return;
-        
+
         processBtn.disabled = true; clearBtn.disabled = true;
         processBtn.innerText = "Mengekstrak...";
         statusDiv.innerHTML = "Sedang membaca data, mohon tunggu...";
-        
+
         let allExtracted = []; let errorCount = 0; let successfullyProcessedFiles = [];
-        
+
         for (let i = 0; i < selectedFiles.length; i++) {
             let file = selectedFiles[i];
             try {
@@ -510,18 +505,18 @@
                 fileHistory.push({ name: f.name, size: f.size, date: dateStr });
             });
             if (fileHistory.length > 500) fileHistory = fileHistory.slice(fileHistory.length - 500);
-            
+
             localStorage.setItem(STORAGE_KEY, JSON.stringify(fileHistory));
             renderHistory(); 
 
             let msg = `<span style="color:#10B981">Ekstraksi berhasil diselesaikan!</span>`;
             if(errorCount > 0) msg += ` <span style="color:red">(${errorCount} file gagal)</span>`;
             statusDiv.innerHTML = msg;
-            
+
             resultCountText.innerText = `✅ Mengekstrak ${extractedDataGlobal.length} baris pemilih unik!`;
             if (dupeCount > 0) duplicateCountText.innerText = `Membuang ${dupeCount} baris data NIK ganda.`;
             else duplicateCountText.innerText = ``;
-            
+
             previewTableBody.innerHTML = '';
             const previewLimit = Math.min(extractedDataGlobal.length, 100);
             for(let i=0; i < previewLimit; i++){
@@ -544,7 +539,7 @@
             tableContainer.style.display = 'block'; actionArea.style.display = 'block';
             selectedFiles = []; fileListDiv.style.display = "none";
             clearBtn.style.display = "none"; customFileNameInput.value = "";
-            
+
         } else {
             statusDiv.innerHTML = `<span style="color:red">Gagal: Pola format tidak ditemukan pada file tersebut.</span>`;
             tableContainer.style.display = 'none'; actionArea.style.display = 'none';
@@ -554,28 +549,74 @@
         processBtn.innerText = "▶️ Mulai Ekstraksi";
     });
 
-    downloadBtn.addEventListener('click', () => {
+    // ========== DOWNLOAD CSV ==========
+    downloadCSVBtn.addEventListener('click', () => {
+        if(extractedDataGlobal.length === 0) return;
+        let finalFileName = customFileNameInput.value.trim();
+        if (finalFileName === "") finalFileName = "Data_Hasil_Ekstraksi_Bersih";
+        if (!finalFileName.toLowerCase().endsWith('.csv')) finalFileName += ".csv";
+
+        // Header: NIK, NAMA, TANGGAL LAHIR (tanpa NO)
+        const headers = ["NIK", "NAMA", "TANGGAL LAHIR"];
+
+        // Buat baris data - tanggal tetap pakai format asli (dd-mm-yyyy)
+        const rows = extractedDataGlobal.map(item => {
+            return [
+                item.NIK,
+                item.NAMA,
+                item['TANGGAL LAHIR'] || '-'
+            ];
+        });
+
+        // Escape CSV: jika ada koma, newline, atau quote, bungkus dengan quotes
+        function escapeCSV(val) {
+            let str = String(val);
+            if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                str = '"' + str.replace(/"/g, '""') + '"';
+            }
+            return str;
+        }
+
+        const csvContent = [
+            headers.join(','),
+            ...rows.map(row => row.map(escapeCSV).join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = finalFileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+
+    // ========== DOWNLOAD EXCEL ==========
+    downloadExcelBtn.addEventListener('click', () => {
         if(extractedDataGlobal.length === 0) return;
         let finalFileName = customFileNameInput.value.trim();
         if (finalFileName === "") finalFileName = "Data_Hasil_Ekstraksi_Bersih";
         if (!finalFileName.toLowerCase().endsWith('.xlsx')) finalFileName += ".xlsx";
 
-        // MAPPING BARU AGAR SESUAI DENGAN GAMBAR (Hanya NIK, Nama, dan Tgl Lahir + ganti - jadi /)
+        // Mapping: Hanya NIK, Nama, Tgl Lahir (tanpa NO)
+        // Excel tetap pakai / untuk kompatibilitas
         const exportData = extractedDataGlobal.map(item => {
             return {
                 "NIK": item.NIK,
-                "Nama": item.NAMA,
-                "Tgl Lahir": item['TANGGAL LAHIR'] ? item['TANGGAL LAHIR'].replace(/-/g, '/') : '-'
+                "NAMA": item.NAMA,
+                "TANGGAL LAHIR": item['TANGGAL LAHIR'] ? item['TANGGAL LAHIR'].replace(/-/g, '/') : '-'
             };
         });
 
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.json_to_sheet(exportData);
-        
-        // Penyesuaian lebar kolom (3 Kolom)
+
+        // Lebar kolom (3 kolom)
         const wscols = [{wch: 20}, {wch: 35}, {wch: 15}];
         ws['!cols'] = wscols;
-        
+
         XLSX.utils.book_append_sheet(wb, ws, "Daftar Pemilih Unik");
         XLSX.writeFile(wb, finalFileName);
     });
