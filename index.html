@@ -158,7 +158,7 @@
     <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
         <p style="font-size: 40px; margin: 0;">📥</p>
         <p style="margin: 15px 0 5px; font-weight: 600;">Klik atau Drop File Excel/CSV/TXT Anda Di Sini</p>
-        <p style="font-size: 13px; color: var(--text-muted);">Mendukung semua format model A-KWK / DPTHP</p>
+        <p style="font-size: 13px; color: var(--text-muted);">Mendukung format .xls, .xlsx, .csv, .txt (termasuk format Dukcapil)</p>
     </div>
     <input type="file" id="fileInput" multiple accept=".csv, .txt, .xlsx, .xls">
 
@@ -343,6 +343,38 @@
         fileListDiv.innerHTML = ''; fileInput.value = "";
     }
 
+    // ========== FUNGSI KONVERSI SERIAL DATE EXCEL KE FORMAT TANGGAL ==========
+    function excelSerialToDate(serial) {
+        // Excel serial date: 1 = 1 Januari 1900 (dengan bug tahun 1900)
+        // 25569 adalah offset dari 1 Jan 1900 ke 1 Jan 1970
+        // Namun kita gunakan perhitungan manual untuk akurasi
+
+        // Excel menyimpan tanggal sebagai jumlah hari sejak 30 Des 1899
+        // (dengan bug leap year 1900)
+        const excelEpoch = new Date(1899, 11, 30); // 30 Des 1899
+        const msPerDay = 24 * 60 * 60 * 1000;
+
+        // Jika serial mengandung desimal (waktu), ambil bagian integer saja
+        const days = Math.floor(serial);
+        const date = new Date(excelEpoch.getTime() + days * msPerDay);
+
+        const day = ("0" + date.getDate()).slice(-2);
+        const month = ("0" + (date.getMonth() + 1)).slice(-2);
+        const year = date.getFullYear();
+
+        return `${day}-${month}-${year}`;
+    }
+
+    function isExcelSerialDate(value) {
+        // Cek apakah nilai adalah angka yang kemungkinan serial date Excel
+        // Serial date Excel biasanya antara 1 dan ~50000 (untuk tahun 2036)
+        // atau lebih tinggi untuk tahun-tahun mendatang
+        if (typeof value !== 'number') return false;
+        if (value <= 0) return false;
+        if (value > 100000) return false; // Terlalu besar, bukan tanggal
+        return true;
+    }
+
     function processFileAsync(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -356,10 +388,11 @@
                 reader.onload = (e) => {
                     try {
                         const data = new Uint8Array(e.target.result);
-                        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                        const workbook = XLSX.read(data, { type: 'array', cellDates: false, raw: true });
                         let allSheetData = [];
                         workbook.SheetNames.forEach(sheetName => {
                             const sheet = workbook.Sheets[sheetName];
+                            // raw: true agar mendapat nilai asli (termasuk serial date)
                             const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true });
                             allSheetData = allSheetData.concat(processSheetRows(rows));
                         });
@@ -374,6 +407,94 @@
 
     function processSheetRows(rows) {
         let data = [];
+
+        // Cari baris header untuk identifikasi kolom
+        let headerRowIndex = -1;
+        let nikCol = -1, namaCol = -1, tglLhrCol = -1;
+
+        // Cari header dalam 10 baris pertama
+        for (let i = 0; i < Math.min(rows.length, 15); i++) {
+            let row = rows[i];
+            if (!row || row.length === 0) continue;
+
+            let rowStr = row.map(c => String(c || '').toUpperCase().trim()).join(' ');
+
+            // Deteksi header Dukcapil: NIK, NAMA, TGL_LHR
+            if (rowStr.includes('NIK') && rowStr.includes('NAMA')) {
+                // Cari posisi kolom spesifik
+                for (let c = 0; c < row.length; c++) {
+                    let cellStr = String(row[c] || '').toUpperCase().trim();
+                    if (cellStr === 'NIK') nikCol = c;
+                    if (cellStr === 'NAMA') namaCol = c;
+                    if (cellStr === 'TGL_LHR' || cellStr === 'TGL LAHIR' || cellStr === 'TANGGAL LAHIR') tglLhrCol = c;
+                }
+
+                // Jika ketemu NIK dan NAMA, anggap ini header
+                if (nikCol !== -1 && namaCol !== -1) {
+                    headerRowIndex = i;
+                    break;
+                }
+            }
+        }
+
+        // Jika header Dukcapil ditemukan, proses dengan kolom spesifik
+        if (headerRowIndex !== -1) {
+            for (let i = headerRowIndex + 1; i < rows.length; i++) {
+                let row = rows[i];
+                if (!row || row.length === 0) continue;
+
+                let nik = String(row[nikCol] || '').trim();
+                let nama = String(row[namaCol] || '').trim();
+                let tglLhr = row[tglLhrCol];
+
+                // Validasi NIK: harus 16 digit
+                let nikDigits = nik.replace(/\D/g, '');
+                if (nikDigits.length !== 16) continue;
+
+                // Validasi nama: minimal 2 karakter, hanya huruf/spasi
+                if (!nama || nama.length < 2) continue;
+
+                // Skip jika nama adalah header atau placeholder
+                if (nama.toUpperCase() === 'NAMA') continue;
+
+                // Proses tanggal lahir
+                let tglStr = '-';
+                if (tglLhr !== undefined && tglLhr !== null && tglLhr !== '') {
+                    if (typeof tglLhr === 'number' && isExcelSerialDate(tglLhr)) {
+                        // Konversi serial date Excel
+                        tglStr = excelSerialToDate(tglLhr);
+                    } else {
+                        let tglRaw = String(tglLhr).trim();
+                        // Cek apakah string berisi angka saja (serial date sebagai string)
+                        if (/^\d+(\.\d+)?$/.test(tglRaw)) {
+                            let serialNum = parseFloat(tglRaw);
+                            if (isExcelSerialDate(serialNum)) {
+                                tglStr = excelSerialToDate(serialNum);
+                            }
+                        } else {
+                            // Coba parse format tanggal string
+                            let dateMatch = tglRaw.match(/\b(\d{2,4})[-/|](\d{1,2})[-/|](\d{2,4})\b/);
+                            if (dateMatch) {
+                                let p1 = dateMatch[1]; let p2 = ("0" + dateMatch[2]).slice(-2); let p3 = dateMatch[3]; 
+                                if (p1.length === 4) { tglStr = `${("0"+p3).slice(-2)}-${p2}-${p1}`; } 
+                                else if (p3.length === 4) { tglStr = `${("0"+p1).slice(-2)}-${p2}-${p3}`; } 
+                                else if (p3.length === 2 && p1.length === 2) { 
+                                    let year = parseInt(p3) > 50 ? "19" + p3 : "20" + p3;
+                                    tglStr = `${("0"+p1).slice(-2)}-${p2}-${year}`;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                data.push({ NIK: nikDigits, NAMA: nama, 'TANGGAL LAHIR': tglStr });
+            }
+
+            // Jika berhasil mengekstrak data dengan header, return
+            if (data.length > 0) return data;
+        }
+
+        // Fallback: gunakan metode deteksi otomatis (kode asli)
         const excludeWords = ['LAKI-LAKI', 'PEREMPUAN', 'KAWIN', 'BELUM KAWIN', 'CERAI HIDUP', 'CERAI MATI', 'SUDAH KAWIN', 'KABUPATEN', 'PROVINSI', 'KECAMATAN', 'DESA', 'KELURAHAN', 'PEMILIH', 'TETAP', 'PERBAIKAN', 'TPS', 'ALAMAT', 'NAMA', 'NO', 'KK', 'NIK'];
 
         for (let i = 0; i < rows.length; i++) {
@@ -386,7 +507,7 @@
             let sixteenDigitCols = [];
             for (let c = 0; c < row.length; c++) {
                 let cellStr = String(row[c] || '').trim();
-                let digits = cellStr.replace(/[^0-9]/g, '');
+                let digits = cellStr.replace(/\D/g, '');
                 if (digits.length === 16 || digits.length === 15) {
                     sixteenDigitCols.push({index: c, val: digits});
                 }
@@ -398,14 +519,26 @@
 
             for (let c = 0; c < row.length; c++) {
                 let cellVal = row[c];
-                if (!cellVal) continue;
-                if (cellVal instanceof Date) {
-                    let d = cellVal;
-                    tgl = ("0" + d.getDate()).slice(-2) + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + d.getFullYear();
+                if (cellVal === undefined || cellVal === null || cellVal === '') continue;
+
+                // Cek apakah ini serial date Excel
+                if (typeof cellVal === 'number' && isExcelSerialDate(cellVal)) {
+                    tgl = excelSerialToDate(cellVal);
                     tglColIndex = c; break;
                 }
+
                 if (typeof cellVal === 'string' || typeof cellVal === 'number') {
                     let dateStr = String(cellVal).trim();
+
+                    // Cek apakah string adalah serial date
+                    if (/^\d+(\.\d+)?$/.test(dateStr)) {
+                        let serialNum = parseFloat(dateStr);
+                        if (isExcelSerialDate(serialNum)) {
+                            tgl = excelSerialToDate(serialNum);
+                            tglColIndex = c; break;
+                        }
+                    }
+
                     let dateMatch = dateStr.match(/\b(\d{2,4})[-/|](\d{1,2})[-/|](\d{2,4})\b/);
                     if (dateMatch) {
                         let p1 = dateMatch[1]; let p2 = ("0" + dateMatch[2]).slice(-2); let p3 = dateMatch[3]; 
